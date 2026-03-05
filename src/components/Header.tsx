@@ -22,7 +22,7 @@ const Header = ({ isLoggedIn, userName, userAvatar, onLogout }: HeaderProps) => 
           className="flex items-center gap-2 transition-transform hover:scale-105"
         >
           <img src={mascot} alt="Snap2Calendar mascot" className="h-9 w-9 rounded-lg" />
-          <span className="font-display text-xl font-800 text-foreground">
+          <span className="font-display text-lg font-800 text-foreground sm:text-xl">
             Snap<span className="text-primary">2</span>Calendar
           </span>
         </button>

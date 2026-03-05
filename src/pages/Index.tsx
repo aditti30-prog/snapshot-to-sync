@@ -128,21 +128,21 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="container mx-auto max-w-2xl px-4 py-10">
+      <main className="container mx-auto max-w-2xl px-4 py-6 sm:py-10">
         {/* Hero */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center"
         >
-          <h1 className="font-display text-3xl font-extrabold leading-tight text-foreground sm:text-4xl">
+          <h1 className="font-display text-2xl font-extrabold leading-tight text-foreground sm:text-4xl">
             Turn chat screenshots into{" "}
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Google Calendar events
             </span>{" "}
             in seconds.
           </h1>
-          <p className="mt-3 text-lg text-muted-foreground">
+          <p className="mt-2 text-base text-muted-foreground sm:mt-3 sm:text-lg">
             Upload a screenshot. We'll read it and create the event for you.
           </p>
         </motion.div>
@@ -152,18 +152,18 @@ const Index = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="my-8 flex items-center justify-center gap-3 text-muted-foreground"
+          className="my-6 flex flex-col items-center gap-2 text-muted-foreground sm:my-8 sm:flex-row sm:justify-center sm:gap-3"
         >
           <div className="flex items-center gap-2 rounded-full bg-card px-4 py-2 shadow-sm border border-border">
             <Image className="h-4 w-4 text-primary" />
             <span className="text-sm font-medium">Screenshot</span>
           </div>
-          <ArrowRight className="h-4 w-4" />
+          <ArrowRight className="h-4 w-4 rotate-90 sm:rotate-0" />
           <div className="flex items-center gap-2 rounded-full bg-card px-4 py-2 shadow-sm border border-border">
             <Sparkles className="h-4 w-4 text-accent" />
             <span className="text-sm font-medium">AI reads it</span>
           </div>
-          <ArrowRight className="h-4 w-4" />
+          <ArrowRight className="h-4 w-4 rotate-90 sm:rotate-0" />
           <div className="flex items-center gap-2 rounded-full bg-card px-4 py-2 shadow-sm border border-border">
             <Calendar className="h-4 w-4 text-secondary" />
             <span className="text-sm font-medium">Calendar event</span>
@@ -184,7 +184,7 @@ const Index = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex cursor-pointer flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-primary/30 bg-card p-12 transition-colors hover:border-primary/60 hover:bg-primary/5"
+                className="flex cursor-pointer flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-primary/30 bg-card p-8 transition-colors hover:border-primary/60 hover:bg-primary/5 sm:p-12"
               >
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                   <Upload className="h-8 w-8 text-primary" />
@@ -258,7 +258,7 @@ const Index = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex flex-col items-center gap-4 rounded-2xl bg-card p-12 shadow-lg border border-border"
+                className="flex flex-col items-center gap-4 rounded-2xl bg-card p-8 shadow-lg border border-border sm:p-12"
               >
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 <div className="text-center">
@@ -345,7 +345,7 @@ const Index = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex flex-col items-center gap-4 rounded-2xl bg-card p-10 shadow-lg border border-border"
+                className="flex flex-col items-center gap-4 rounded-2xl bg-card p-6 shadow-lg border border-border sm:p-10"
               >
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
                   <AlertCircle className="h-7 w-7 text-destructive" />

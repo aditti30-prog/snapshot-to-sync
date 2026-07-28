@@ -16,37 +16,42 @@ import {
   Type,
   Calendar as CalendarIcon,
   CheckCheck,
+  ExternalLink,
+  Download,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
-/*  Static mock data — no backend, no APIs, no auth.                   */
+/*  Static mock data — no backend, no auth, no database.              */
+/*  The only "integration" is a client-side hand-off to the user's    */
+/*  own calendar: a Google Calendar prefill link and a local .ics     */
+/*  download for Apple Calendar. No APIs are called from this app.    */
 /* ------------------------------------------------------------------ */
 
 type Msg = {
   id: number;
-  sender: "you" | string;
-  name?: string;
-  color?: string;
+  sender: "you" | "them";
   text: string;
   time: string;
   confirmed?: boolean;
 };
 
-const GROUP = {
-  name: "Dinner Squad 🍜",
-  members: "You, Priya, Marcus",
+const FRIEND = {
+  name: "Priya Menon",
+  status: "online",
+  emoji: "🧑🏽‍🦱",
 };
 
+// 1:1 (person-to-person) conversation
 const MESSAGES: Msg[] = [
-  { id: 1, sender: "Priya", name: "Priya", color: "#d9376e", text: "Sooo are we finally doing dinner this week? 🍜", time: "6:41 PM" },
-  { id: 2, sender: "Marcus", name: "Marcus", color: "#2a7ad4", text: "Yes please. I'm starving already 😭", time: "6:42 PM" },
-  { id: 3, sender: "you", text: "How about Tuesday? VivoCity has a ton of options", time: "6:43 PM" },
-  { id: 4, sender: "Priya", name: "Priya", color: "#d9376e", text: "VivoCity works for me. 7pm?", time: "6:44 PM" },
-  { id: 5, sender: "Marcus", name: "Marcus", color: "#2a7ad4", text: "7pm Tuesday is perfect 👍", time: "6:45 PM" },
+  { id: 1, sender: "them", text: "Are we still on for dinner this week? 🍜", time: "6:41 PM" },
+  { id: 2, sender: "you", text: "Yes! Does Tuesday work for you?", time: "6:42 PM" },
+  { id: 3, sender: "them", text: "Tuesday's perfect. Where though?", time: "6:43 PM" },
+  { id: 4, sender: "you", text: "VivoCity? Loads of options there", time: "6:44 PM" },
+  { id: 5, sender: "them", text: "Ooh yes. 7pm?", time: "6:45 PM" },
   {
     id: 6,
     sender: "you",
-    text: "Confirmed! Dinner Tuesday at 7pm, VivoCity 🎉 See you both there",
+    text: "Confirmed — dinner Tuesday at 7pm, VivoCity 🎉",
     time: "6:46 PM",
     confirmed: true,
   },
@@ -59,11 +64,15 @@ const INITIAL_EVENT = {
   location: "VivoCity, 1 HarbourFront Walk",
 };
 
-const INITIAL_PARTICIPANTS = ["You", "Priya", "Marcus"];
+// Defaults to the two people in this p2p chat; editable in the sheet.
+const INITIAL_PARTICIPANTS = ["You", "Priya"];
+
+const DURATION_MINUTES = 120;
 
 /* ------------------------------------------------------------------ */
 
 type SheetState = "hidden" | "form" | "success";
+type CalendarKind = "google" | "apple";
 
 const formatPrettyDate = (iso: string) => {
   const d = new Date(iso + "T00:00:00");
@@ -82,9 +91,43 @@ const formatPrettyTime = (t: string) => {
   return `${h12}:${m} ${ampm}`;
 };
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
+const eventDates = (date: string, time: string) => {
+  const start = new Date(`${date}T${time}:00`);
+  const end = new Date(start.getTime() + DURATION_MINUTES * 60 * 1000);
+  return { start, end };
+};
+
+const localStamp = (d: Date) =>
+  `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}${pad(d.getMinutes())}00`;
+
+const utcStamp = (d: Date) =>
+  `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(
+    d.getUTCHours()
+  )}${pad(d.getUTCMinutes())}00Z`;
+
+/* Small brand marks (inline SVG — no external images) */
+const GoogleMark = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
+    <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z" />
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z" />
+  </svg>
+);
+
+const AppleMark = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+    <path d="M16.37 12.7c-.03-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.1-2.02-3.77-2.05-1.6-.16-3.13.94-3.94.94-.82 0-2.07-.92-3.4-.9-1.75.03-3.36 1.02-4.26 2.58-1.82 3.15-.47 7.82 1.3 10.38.86 1.25 1.89 2.66 3.24 2.61 1.3-.05 1.79-.84 3.36-.84 1.56 0 2 .84 3.37.81 1.39-.02 2.28-1.28 3.13-2.54.99-1.46 1.4-2.87 1.42-2.94-.03-.01-2.72-1.04-2.75-4.15zM13.94 4.9c.72-.87 1.2-2.08 1.07-3.28-1.03.04-2.28.69-3.02 1.55-.66.77-1.24 2-1.08 3.18 1.15.09 2.32-.58 3.03-1.45z" />
+  </svg>
+);
+
 const WhatsAppDinner = () => {
   const [sheet, setSheet] = useState<SheetState>("hidden");
-  const [suggestionUsed, setSuggestionUsed] = useState(false);
+  const [savedTo, setSavedTo] = useState<CalendarKind | null>(null);
 
   // Editable event fields
   const [title, setTitle] = useState(INITIAL_EVENT.title);
@@ -108,10 +151,54 @@ const WhatsAppDinner = () => {
     setNewParticipant("");
   };
 
-  const confirmEvent = () => {
+  /* Hand off to the user's real calendar — entirely client-side. */
+  const saveToCalendar = (kind: CalendarKind) => {
+    const { start, end } = eventDates(date, time);
+    const details = `Dinner plans confirmed over chat.\nWith: ${participants.join(", ")}`;
+
+    if (kind === "google") {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const url =
+        "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+        `&text=${encodeURIComponent(title)}` +
+        `&dates=${localStamp(start)}/${localStamp(end)}` +
+        `&ctz=${encodeURIComponent(tz)}` +
+        `&location=${encodeURIComponent(location)}` +
+        `&details=${encodeURIComponent(details)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      const ics = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Snap2Calendar//Dinner Prototype//EN",
+        "CALSCALE:GREGORIAN",
+        "BEGIN:VEVENT",
+        `UID:${start.getTime()}-dinner@snap2calendar`,
+        `DTSTAMP:${utcStamp(new Date())}`,
+        `DTSTART:${utcStamp(start)}`,
+        `DTEND:${utcStamp(end)}`,
+        `SUMMARY:${title}`,
+        `LOCATION:${location}`,
+        `DESCRIPTION:${details.replace(/\n/g, "\\n")}`,
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ].join("\r\n");
+      const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = "dinner-at-vivocity.ics";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(href);
+    }
+
+    setSavedTo(kind);
     setSheet("success");
-    setSuggestionUsed(true);
   };
+
+  const calLabel = savedTo === "google" ? "Google Calendar" : "Apple Calendar";
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-muted to-background p-4">
@@ -126,11 +213,11 @@ const WhatsAppDinner = () => {
           <div className="z-20 flex items-center gap-3 bg-[#075E54] px-3 pb-2 pt-9 text-white shadow">
             <ArrowLeft className="h-5 w-5 shrink-0" />
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#128C7E] text-lg">
-              🍜
+              {FRIEND.emoji}
             </div>
             <div className="min-w-0 flex-1 leading-tight">
-              <p className="truncate font-semibold">{GROUP.name}</p>
-              <p className="truncate text-xs text-white/70">{GROUP.members}</p>
+              <p className="truncate font-semibold">{FRIEND.name}</p>
+              <p className="truncate text-xs text-white/70">{FRIEND.status}</p>
             </div>
             <Video className="h-5 w-5 shrink-0" />
             <Phone className="h-5 w-5 shrink-0" />
@@ -162,14 +249,6 @@ const WhatsAppDinner = () => {
                         mine ? "bg-[#DCF8C6] text-neutral-800" : "bg-white text-neutral-800"
                       }`}
                     >
-                      {!mine && (
-                        <p
-                          className="mb-0.5 text-[12px] font-semibold"
-                          style={{ color: m.color }}
-                        >
-                          {m.name}
-                        </p>
-                      )}
                       <p>{m.text}</p>
                       <div className="mt-0.5 flex items-center justify-end gap-1">
                         <span className="text-[10px] text-neutral-400">{m.time}</span>
@@ -180,35 +259,35 @@ const WhatsAppDinner = () => {
 
                   {/* Smart "Create event" suggestion below the confirmed message */}
                   {m.confirmed && (
-                    <div className="mt-1 flex justify-end">
+                    <div className="mt-2 flex justify-center">
                       <motion.button
                         onClick={openSheet}
-                        whileTap={{ scale: 0.97 }}
-                        className="flex max-w-[80%] items-center gap-3 rounded-lg border border-[#075E54]/15 bg-white px-3 py-2.5 text-left shadow-sm"
+                        whileTap={{ scale: 0.98 }}
+                        className="flex w-full max-w-[92%] items-center gap-3 rounded-xl border border-[#075E54]/15 bg-white px-3 py-3 text-left shadow-sm"
                       >
                         <div
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                            suggestionUsed ? "bg-[#25D366]/15" : "bg-[#075E54]/10"
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                            savedTo ? "bg-[#25D366]/15" : "bg-[#075E54]/10"
                           }`}
                         >
-                          {suggestionUsed ? (
+                          {savedTo ? (
                             <CalendarCheck className="h-5 w-5 text-[#25D366]" />
                           ) : (
                             <CalendarPlus className="h-5 w-5 text-[#075E54]" />
                           )}
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-[13px] font-semibold text-neutral-800">
-                            {suggestionUsed ? "Event added to calendar" : "Create event"}
+                            {savedTo ? `Added to ${calLabel}` : "Create calendar event"}
                           </p>
                           <p className="truncate text-[12px] text-neutral-500">
-                            {suggestionUsed
+                            {savedTo
                               ? `${formatPrettyDate(date)} · ${formatPrettyTime(time)}`
                               : "Dinner · Tue 7:00 PM · VivoCity"}
                           </p>
                         </div>
-                        {!suggestionUsed && (
-                          <span className="ml-1 shrink-0 text-[12px] font-semibold text-[#075E54]">
+                        {!savedTo && (
+                          <span className="shrink-0 rounded-full bg-[#075E54] px-3 py-1 text-[12px] font-semibold text-white">
                             Add
                           </span>
                         )}
@@ -249,7 +328,7 @@ const WhatsAppDinner = () => {
                   animate={{ y: 0 }}
                   exit={{ y: "100%" }}
                   transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                  className="absolute inset-x-0 bottom-0 z-50 max-h-[92%] overflow-y-auto rounded-t-3xl bg-white"
+                  className="absolute inset-x-0 bottom-0 z-50 max-h-[94%] overflow-y-auto rounded-t-3xl bg-white"
                 >
                   <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-neutral-300" />
 
@@ -304,7 +383,7 @@ const WhatsAppDinner = () => {
                       </Field>
 
                       {/* Participants */}
-                      <div className="mb-3 rounded-2xl border border-neutral-200 px-3 py-2.5">
+                      <div className="mb-4 rounded-2xl border border-neutral-200 px-3 py-2.5">
                         <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
                           <Users className="h-4 w-4" />
                           Participants
@@ -344,21 +423,33 @@ const WhatsAppDinner = () => {
                         </div>
                       </div>
 
-                      {/* Actions */}
-                      <div className="mt-5 flex gap-3">
+                      {/* Save-to-calendar choice */}
+                      <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-neutral-400">
+                        Save to
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
                         <button
-                          onClick={closeSheet}
-                          className="flex-1 rounded-full border border-neutral-200 py-3 text-[15px] font-semibold text-neutral-600"
+                          onClick={() => saveToCalendar("google")}
+                          className="flex items-center justify-center gap-2 rounded-2xl border border-neutral-200 py-3 text-[14px] font-semibold text-neutral-800 transition-colors hover:bg-neutral-50"
                         >
-                          Cancel
+                          <GoogleMark />
+                          Google
                         </button>
                         <button
-                          onClick={confirmEvent}
-                          className="flex-[2] rounded-full bg-[#25D366] py-3 text-[15px] font-bold text-white shadow-lg shadow-[#25D366]/30"
+                          onClick={() => saveToCalendar("apple")}
+                          className="flex items-center justify-center gap-2 rounded-2xl bg-neutral-900 py-3 text-[14px] font-semibold text-white transition-colors hover:bg-neutral-800"
                         >
-                          Add to calendar
+                          <AppleMark />
+                          Apple
                         </button>
                       </div>
+
+                      <button
+                        onClick={closeSheet}
+                        className="mt-4 w-full rounded-full py-2.5 text-[15px] font-semibold text-neutral-500"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   ) : (
                     /* -------------------- Success state -------------------- */
@@ -379,10 +470,20 @@ const WhatsAppDinner = () => {
                       </motion.div>
 
                       <h2 className="mt-5 text-xl font-bold text-neutral-900">
-                        Event added!
+                        Sent to {calLabel}
                       </h2>
-                      <p className="mt-1 text-[14px] text-neutral-500">
-                        Added to your calendar and shared with the group.
+                      <p className="mt-1 flex items-center gap-1.5 text-[13px] text-neutral-500">
+                        {savedTo === "google" ? (
+                          <>
+                            <ExternalLink className="h-4 w-4" />
+                            Opened in a new tab — tap Save there to confirm.
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4" />
+                            .ics downloaded — open it to add to Apple Calendar.
+                          </>
+                        )}
                       </p>
 
                       <div className="mt-5 w-full rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-left">
